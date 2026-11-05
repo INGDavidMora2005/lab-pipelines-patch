@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { Inicio } from './pages/inicio/inicio';
+import { Contacto } from './pages/contacto/contacto';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'inicio', pathMatch: 'full' },
@@ -9,5 +9,6 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/proyectos/proyectos').then((m) => m.Proyectos),
     title: 'Proyectos',
   },
-  { path: 'inicio', component: Inicio, title: 'Inicio' },
+  { path: 'contacto', component: Contacto },
+  { path: '**', redirectTo: 'inicio' },
 ];

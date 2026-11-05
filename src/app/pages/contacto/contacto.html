@@ -1,0 +1,23 @@
+<section class="page">
+  <h2>Contacto</h2>
+  <p>¿Quieres saber más? Escríbenos.</p>
+
+  <div class="card contacto__card">
+    <form class="contacto__form" (submit)="enviar($event)">
+      <label for="nombre">Nombre</label>
+      <input id="nombre" name="nombre" type="text" required />
+
+      <label for="correo">Correo</label>
+      <input id="correo" name="correo" type="email" required />
+
+      <label for="mensaje">Mensaje</label>
+      <textarea id="mensaje" name="mensaje" rows="5" required></textarea>
+
+      <button class="btn" type="submit">Enviar</button>
+    </form>
+
+    @if (enviado()) {
+      <p class="tag contacto__ok">Mensaje enviado</p>
+    }
+  </div>
+</section>

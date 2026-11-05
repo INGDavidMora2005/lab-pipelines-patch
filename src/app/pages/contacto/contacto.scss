@@ -1,0 +1,43 @@
+.contacto__card {
+  max-width: 560px;
+}
+
+.contacto__form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.contacto__form label {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.contacto__form input,
+.contacto__form textarea {
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+
+.contacto__form textarea {
+  resize: vertical;
+}
+
+.contacto__form input:focus,
+.contacto__form textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.contacto__form .btn {
+  align-self: flex-start;
+}
+
+.contacto__ok {
+  margin: 16px 0 0;
+}
