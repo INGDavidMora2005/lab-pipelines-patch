@@ -1,6 +1,6 @@
 .navbar {
   background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 3px solid var(--accent);
   position: sticky;
   top: 0;
   z-index: 10;
@@ -16,8 +16,8 @@
 }
 
 .navbar__brand {
-  font-family: var(--font-mono);
-  font-weight: 600;
+  font-family: var(--font-serif);
+  font-weight: 700;
   font-size: 1.25rem;
   color: var(--text);
 }
@@ -50,5 +50,5 @@
 
 .navbar__links a.activo {
   color: var(--accent);
-  background: rgba(88, 166, 255, 0.1);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
