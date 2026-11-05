@@ -1,10 +1,33 @@
 # Diseño común DevHub
 
-## Paleta y tipografía
-- Fondo #0d1117, superficie #161b22, borde #30363d
-- Texto #e6edf3, texto secundario #8b949e
-- Acento azul #58a6ff, acento verde #3fb950
-- Fuentes: Inter (texto) y JetBrains Mono (código y etiquetas)
+## Paleta y tipografía (App 2, Path Location)
+Tema claro cálido con acento naranja; se distingue de la App 1 (tema oscuro con acento azul).
+
+| Variable | Valor | Uso |
+|---|---|---|
+| `--bg` | #faf7f2 | Fondo de la página |
+| `--surface` | #ffffff | Tarjetas, menú y pie |
+| `--border` | #e4dccf | Bordes |
+| `--text` | #1c1917 | Texto y títulos |
+| `--muted` | #57534e | Texto secundario y descripciones |
+| `--accent` | #b63d0b | Acento naranja: enlaces, etiquetas, botones, borde del menú |
+| `--accent-2` | #0f766e | Acento verde azulado (`.tag`) |
+| `--on-accent` | #ffffff | Texto sobre el acento |
+| `--radius` | 4px | Esquinas más rectas |
+
+- Fuentes: Fraunces 600/700 (`--font-serif`, títulos h1–h3 y marca "DevHub"), Inter (`--font-sans`, texto) y JetBrains Mono (`--font-mono`, código y etiquetas).
+- Menú: fondo `--surface` con borde inferior de 3px en `--accent`; enlace activo con fondo `color-mix(in srgb, var(--accent) 12%, transparent)` y texto `--accent`.
+
+### Contraste (WCAG AA, mínimo 4.5:1)
+| Combinación | Ratio |
+|---|---|
+| `--text` sobre `--bg` / `--surface` | 16.37 / 17.49 |
+| `--muted` sobre `--bg` / `--surface` | 7.14 / 7.63 |
+| `--accent` sobre `--bg` / `--surface` | 5.37 / 5.74 |
+| Blanco sobre `--accent` | 5.74 |
+| `--accent` sobre su fondo de etiqueta (12 % sobre `--surface` / `--bg`) | 4.80 / 4.51 |
+
+El naranja propuesto #c2410c daba 4.35:1 sobre el fondo de etiqueta, así que se oscureció lo mínimo (luminosidad HSL) hasta #b63d0b.
 
 ## Textos de las vistas
 
