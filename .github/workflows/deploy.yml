@@ -1,67 +1,175 @@
-name: Deploy Angular to GitHub Pages
+name: "CI/CD"
+
+# Actividad académica de integración y despliegue continuo: el workflow instala,
+# prueba y compila la app, la publica en GitHub Pages y verifica la publicación.
 
 on:
+  # Integración continua en cada push y pull request a la rama por defecto.
   push:
-    branches: ["master"]
+    branches: [master]
+  pull_request:
+    branches: [master]
+  # Ejecución manual desde la pestaña Actions.
   workflow_dispatch:
 
+# Permiso mínimo para leer el repositorio; el job deploy pide los permisos de Pages.
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
+# Una ejecución por referencia: un push nuevo cancela la ejecución anterior del mismo ref.
 concurrency:
-  group: "pages"
-  cancel-in-progress: false
+  group: ${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
+    name: Build y pruebas
     runs-on: ubuntu-latest
-    steps:
-      # 1. Descargar el código
-      - name: Checkout
-        uses: actions/checkout@v4
 
-      # 2. Configurar Node.js
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v7
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v7
         with:
+          # Node 24 es la versión con la que se desarrolló y probó el proyecto.
           node-version: 24
           cache: npm
 
-      # 3. Configurar GitHub Pages
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-
-      # 4. Instalar dependencias
-      - name: Install dependencies
+      - name: Instalar dependencias
         run: npm ci
 
-      # 5. Ejecutar pruebas unitarias (una sola vez, sin watch)
-      - name: Run Unit Tests
-        run: npm test -- --watch=false
+      - name: Ejecutar pruebas
+        run: npm test -- --no-watch
 
-      # 6. Generar build de Angular
-      - name: Build Angular
-        run: npm run build -- --base-href "/${{ github.event.repository.name }}/"
+      - name: Compilar proyecto
+        run: npm run build -- --base-href /lab-pipelines-patch/
 
-      # 7. Fallback SPA para rutas sin hash (OBLIGATORIO en App 2, Path Location)
-      - name: Configure GitHub Pages fallback
-        run: cp ./dist/lab-pipelines-path/browser/index.html ./dist/lab-pipelines-path/browser/404.html
+      - name: Copiar index.html a 404.html
+        run: cp dist/lab-pipelines-path/browser/index.html dist/lab-pipelines-path/browser/404.html
 
-      # 8. Subir artefacto generado
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Validar artefactos del build
+        run: |
+          # El fallback de rutas limpias exige que 404.html exista en la salida.
+          if [ ! -f dist/lab-pipelines-path/browser/404.html ]; then
+            echo "::error::No se encontró 404.html en dist/lab-pipelines-path/browser/"
+            exit 1
+          fi
+
+          # El build debe apuntar al subdirectorio donde Pages publica la app.
+          if ! grep -q 'base href="/lab-pipelines-patch/"' dist/lab-pipelines-path/browser/index.html; then
+            echo "::error::El index.html no contiene el base href /lab-pipelines-patch/"
+            exit 1
+          fi
+
+      # El artefacto de Pages solo se genera en despliegues sobre master.
+      # En pull_request únicamente se validan las pruebas y el build.
+      - name: Configurar Pages
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/master'
+        uses: actions/configure-pages@v6
+
+      - name: Subir artefacto de Pages
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/master'
+        uses: actions/upload-pages-artifact@v5
         with:
-          path: ./dist/lab-pipelines-path/browser
+          path: dist/lab-pipelines-path/browser
 
   deploy:
+    name: Desplegar en GitHub Pages
+    needs: build
+    # Mismas condiciones que la subida del artefacto: solo despliegues sobre master.
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    # Un solo despliegue a la vez; no se cancela el que esté en curso.
+    concurrency:
+      group: "pages"
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Deploy to GitHub Pages
+      - name: Desplegar en GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
+
+  verify:
+    name: Verificar despliegue
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verificar la publicación
+        id: verificacion
+        env:
+          URL_BASE: ${{ needs.deploy.outputs.page_url }}
+          INTENTOS_MAX: 10
+          SEGUNDOS_ESPERA: 15
+        run: |
+          URL="${URL_BASE%/}"
+          MAX="${INTENTOS_MAX}"
+          ESPERA="${SEGUNDOS_ESPERA}"
+
+          # La URL base se consulta CON barra final: sin ella GitHub Pages responde 301.
+          INTENTO=1
+          CODIGO=000
+          while [ "$INTENTO" -le "$MAX" ]; do
+            CODIGO=$(curl --silent --show-error --output "$RUNNER_TEMP/index-base.html" --write-out "%{http_code}" "$URL/")
+            if [ "$CODIGO" = "200" ]; then
+              break
+            fi
+            INTENTO=$((INTENTO + 1))
+            if [ "$INTENTO" -le "$MAX" ]; then
+              sleep "$ESPERA"
+            fi
+          done
+
+          if [ "$CODIGO" != "200" ]; then
+            echo "::error::La URL base ${URL}/ respondió ${CODIGO} después de $MAX intentos. No se pudo verificar el despliegue."
+            exit 1
+          fi
+
+          if ! grep -q "<app-root" "$RUNNER_TEMP/index-base.html"; then
+            echo "::error::El HTML publicado en ${URL} no contiene el marcador <app-root>."
+            exit 1
+          fi
+
+          # Comprueba que el bundle principal referenciado por el index se sirva con 200.
+          BUNDLE=$(grep -oE 'src="[^"]+"' "$RUNNER_TEMP/index-base.html" | head -n 1 | sed -e 's/^src="//' -e 's/"$//' -e 's|^/lab-pipelines-patch/||')
+          if [ -z "$BUNDLE" ]; then
+            echo "::error::No se detectó el bundle JavaScript en el HTML publicado."
+            exit 1
+          fi
+
+          BUNDLE_CODE=$(curl --silent --show-error --output /dev/null --write-out "%{http_code}" "$URL/$BUNDLE")
+          if [ "$BUNDLE_CODE" != "200" ]; then
+            echo "::error::El bundle ${BUNDLE} respondió ${BUNDLE_CODE}, se esperaba 200."
+            exit 1
+          fi
+
+          # Ruta profunda real de esta app. Pages puede responder 404 por diseño,
+          # así que solo se exige que el cuerpo servido contenga <app-root.
+          PROYECTOS_CODE=$(curl --silent --show-error --output "$RUNNER_TEMP/index-proyectos.html" --write-out "%{http_code}" "$URL/proyectos")
+          PROYECTOS_OK="false"
+          if grep -q "<app-root" "$RUNNER_TEMP/index-proyectos.html"; then
+            PROYECTOS_OK="true"
+          fi
+
+          {
+            echo "### Verificación del despliegue en GitHub Pages"
+            echo ""
+            echo "- URL publicada: \`${URL}/\`"
+            echo "- URL base: respuesta HTTP ${CODIGO}; contiene \`<app-root\`: OK"
+            echo "- Bundle principal (\`${BUNDLE}\`): respuesta HTTP ${BUNDLE_CODE}; esperado 200: OK"
+            echo "- Ruta profunda /proyectos: respuesta HTTP ${PROYECTOS_CODE}; contiene \`<app-root\`: ${PROYECTOS_OK}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$PROYECTOS_OK" != "true" ]; then
+            echo "::error::La ruta /proyectos no devolvió el marcador <app-root>; el fallback 404.html no se aplicó como se esperaba."
+            exit 1
+          fi
